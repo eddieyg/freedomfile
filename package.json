@@ -8,7 +8,7 @@
   },
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "commit": "git add . & npx cz"
   },
   "keywords": [
     "image transfer pdf",
@@ -26,5 +26,14 @@
   "dependencies": {
     "pdf-lib": "^1.17.1",
     "sharp": "^0.30.7"
+  },
+  "devDependencies": {
+    "commitizen": "^4.2.5",
+    "cz-emoji-conventional": "^1.0.1"
+  },
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-emoji-conventional"
+    }
   }
 }
