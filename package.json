@@ -1,0 +1,30 @@
+{
+  "name": "freedomfile",
+  "version": "1.0.0",
+  "description": "Free to use PDF, DOC and other document processing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eddieyg/freedomfile.git"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "image transfer pdf",
+    "pdf typeset",
+    "pdf a4 transfer a3",
+    "document",
+    "pdf排版",
+    "pdf小册子排版处理",
+    "pdf A3",
+    "小册子"
+  ],
+  "author": "eddieyg",
+  "email": "eddiezhao@foxmail.com",
+  "license": "MIT",
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "sharp": "^0.30.7"
+  }
+}
