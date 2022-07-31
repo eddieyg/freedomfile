@@ -1,40 +1,54 @@
 import fs from 'fs'
-import { PDFDocument, rgb } from 'pdf-lib'
+import { PDFDocument, PageSizes, rgb } from 'pdf-lib'
+
+interface PdfResult {
+  data: null | Uint8Array
+  err: string
+}
 
 interface ToTimesOptions {
+  // PDF file path
   sourcePath: string
+  // output path
   outputPath?: string
+  // fill page pdf file path
   fillPagePath?: string
-  insertIndex: number
+  // fill page insert index
+  insertIndex?: number
+  // pdf pages times
   times: number
 }
-type ToTimesCB = (result: null | Uint8Array, errMsg?: string) => void
 
 /**
- * 用空白页填补，将PDF的页数处理成多少倍数
- * @param {path} options.sourcePath 原PDF路径
- * @param {path} options.outputPath 输出路径
- * @param {path} options.fillPagePath 填补页面倍数的pdf（取第一页）
- * @param {number} options.insertIndex 插入空白页的原PDF索引
- * @param {number} options.times PDF处理页面倍数
- * @param {function} cb 处理完成后的回调
+ * The number of PDF pages processed to a specified multiple  
+ * 
+ * For example:  
+ * toTimes({  
+ *   sourcePath: 'a.pdf',  
+ *   outputPath: 'b.pdf',  
+ *   times: 4  
+ * })  
+ * // if a.pdf pages is 2, b.pdf pages is 4  
+ * // if a.pdf pages is 6, b.pdf pages is 8  
  */
-const toTimes = async function(options: ToTimesOptions, cb: ToTimesCB) {
+ export async function toTimes(options: ToTimesOptions): Promise<PdfResult> {
   const { sourcePath, outputPath, insertIndex, times = 1, fillPagePath } = options
+  const result: PdfResult = {
+    data: null,
+    err: ''
+  }
   if (!fs.existsSync(sourcePath)) {
-    typeof cb === 'function' && cb(null, `toTimes()，${sourcePath} The path file does not exist！`)
-    return
+    result.err = `toTimes()，${sourcePath} The path file does not exist！`
+    return result
   }
 
   try {
-
     const blankDoc = await PDFDocument.create()
     const sourcePDF = await PDFDocument.load(fs.readFileSync(sourcePath))
     const pageNum = sourcePDF.getPages().length
     let fillPDF
     let needAdd = pageNum % times ? (times - pageNum % times) : 0
-    let pageInsertIndex = insertIndex // 空白页插入的位置
-
+    let pageInsertIndex = insertIndex //  the blank page insert posiotion
     if (fillPagePath && fs.existsSync(fillPagePath)) {
       fillPDF = await PDFDocument.load(fs.readFileSync(fillPagePath))
     }
@@ -43,9 +57,8 @@ const toTimes = async function(options: ToTimesOptions, cb: ToTimesCB) {
     } else if (insertIndex < 0) {
       pageInsertIndex = pageNum + insertIndex
     }
-
     while(needAdd--) {
-      // 添加倍数的补差空白页
+      // Fill in blank pages
       let page = blankDoc.addPage()
       if (fillPDF) {
         let fillPage = await blankDoc.embedPage(fillPDF.getPages()[0])
@@ -64,60 +77,63 @@ const toTimes = async function(options: ToTimesOptions, cb: ToTimesCB) {
       }
     }
     const docPages = await sourcePDF.copyPages(blankDoc, blankDoc.getPageIndices())
-    docPages.forEach(page => sourcePDF.insertPage(pageInsertIndex, page))
-  
+    docPages.forEach(page => sourcePDF.insertPage(pageInsertIndex as number, page))
     let resBuffer = await sourcePDF.save()
-    outputPath && fs.writeFileSync(`${outputPath}.pdf`, resBuffer)
-    typeof cb === 'function' && cb(resBuffer)
-    return resBuffer
-
+    outputPath && fs.writeFileSync(`${outputPath}`, resBuffer)
+    result.data = resBuffer
+    return result
   } catch(err: any) {
-    typeof cb === 'function' && cb(null, `toTimes()，${err.message}`)
-    return
+    result.err = `toTimes()，${err.message}`
+    return result
   }
-
 }
 
 interface ToBookOptions {
+  // A4 PDF file path
   sourcePath: string
+  // output A3 PDF file path
   outputPath?: string
   fillPagePath?: string
-  insertIndex: number
+  insertIndex?: number
 }
-type ToBookCB = (result: null | Uint8Array, errMsg?: string) => void
 
 /**
- * 处理成书册子排版
- * @param {*} options.sourcePath 原PDF路径
- * @param {*} options.outputPath 输出路径
- * @param {number} options.insertIndex 4倍页数补差的空白页 插入的原PDF索引
- * @param {number} options.fillPagePath 填补页面倍数的pdf（取第一页）
- * @param {function} cb 处理完成后的回调
+ * A4 process to A3 typesetting PDF
+ * example:
+ *  toBook({
+ *    sourcePath: 'a.pdf',
+ *    outputPath: 'b.pdf'
+ *  })
+ *  // a.pdf page sort is: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+ *  // b.pdf page sort is: 8 1 | 2 7 | 6 3 | 4 5
  */
-const toBook = async function(options: ToBookOptions, cb: ToBookCB) {
+export async function toBook(options: ToBookOptions): Promise<PdfResult> {
   const { sourcePath, outputPath, insertIndex, fillPagePath } = options
+  const result: PdfResult = {
+    data: null,
+    err: ''
+  }
   if (!fs.existsSync(sourcePath)) {
-    typeof cb === 'function' && cb(null, `toBook()，${sourcePath} The path file does not exist！`)
-    return
+    result.err = `toBook()，${sourcePath} The path file does not exist！`
+    return result
   }
 
   try {
-    let isOver = false
+    const timesResult = await toTimes({
+      sourcePath, 
+      insertIndex, 
+      times: 2, 
+      fillPagePath 
+    })
+    if (timesResult.err) {
+      result.err = timesResult.err
+      return result
+    }
+    const sourcePDF = await PDFDocument.load(timesResult.data as Uint8Array)
     const resPDF = await PDFDocument.create()
-    let sourceBuffer = await toTimes(
-      { sourcePath, insertIndex, times: 4, fillPagePath }, 
-      (data, errMsg) => {
-        if (errMsg) {
-          isOver = true
-          cb(null, errMsg)
-        }
-      }
-    )
-    if (isOver) return
-    let sourcePDF = await PDFDocument.load(sourceBuffer as Uint8Array)
 
-    const pageWidth = 1190  // A3单页宽度
-    const pageHeight = 842  // A3单页高度
+    const pageWidth = PageSizes.A3[1]
+    const pageHeight = PageSizes.A3[0]
     const pageNum = sourcePDF.getPages().length
     let pageIndexs = Array.apply(null, { length: pageNum } as unknown[]).map((e, i) => i)
     let count = 1
@@ -144,17 +160,12 @@ const toBook = async function(options: ToBookOptions, cb: ToBookCB) {
     }
 
     let resBuffer = await resPDF.save()
-    outputPath && fs.writeFileSync(`${outputPath}.pdf`, resBuffer)
-    typeof cb === 'function' && cb(resBuffer)
-    return resBuffer
+    outputPath && fs.writeFileSync(`${outputPath}`, resBuffer)
+    result.data = resBuffer
+    return result
     
   } catch(err: any) {
-    typeof cb === 'function' && cb(null, `toBook()，${err.message}`)
+    result.err = `toBook()，${err.message}`
+    return result
   }
-
-}
-
-export default {
-  toTimes,
-  toBook
 }

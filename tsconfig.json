@@ -17,7 +17,8 @@
     "rootDir": ".",
     "skipLibCheck": true,
     "types": [
-      "@types/node"
+      "@types/node",
+      "vitest/globals",
     ],
     "paths": {}
   },

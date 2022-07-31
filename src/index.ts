@@ -1,4 +1,4 @@
-import FFPdf from './ffpdf'
+import * as FFPdf from './ffpdf'
 
 export {
   FFPdf
