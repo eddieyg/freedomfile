@@ -1,5 +1,6 @@
 import fs from 'fs'
 import { PDFDocument, PageSizes, rgb } from 'pdf-lib'
+import { splitImage } from './ffimage'
 
 interface PdfResult {
   data: null | Uint8Array
@@ -168,4 +169,31 @@ export async function toBook(options: ToBookOptions): Promise<PdfResult> {
     result.err = `toBook()，${err.message}`
     return result
   }
+}
+
+export async function imageToA4Pdf(inputs: string[], outputPath: string) {
+  const pdfDoc = await PDFDocument.create()
+  const splitImages = await splitImage(inputs, {
+    splitWidth: PageSizes.A4[0],
+    splitHeight: PageSizes.A4[1],
+  })
+
+  while(splitImages.length) {
+    const page = pdfDoc.addPage(PageSizes.A4)
+    const imageBytes = splitImages.shift() as Uint8Array
+    const pngImage = await pdfDoc.embedPng(imageBytes)
+    const imageSize = pngImage.scaleToFit(
+      page.getWidth(),
+      page.getHeight()
+    )
+    page.drawImage(pngImage, {
+      x: 0,
+      y: page.getHeight() - imageSize.height,
+      width: imageSize.width,
+      height: imageSize.height,
+    })
+  }
+  const pdfBytes = await pdfDoc.save()
+  fs.writeFileSync(outputPath, pdfBytes)
+  return pdfBytes
 }
